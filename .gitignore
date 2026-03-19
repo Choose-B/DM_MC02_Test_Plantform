@@ -1,0 +1,46 @@
+# ---- Build directories ----
+/build/
+/cmake-build-*/
+
+# ---- CMake generated files (for accidental in-source build) ----
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+CMakeFiles/
+CTestTestfile.cmake
+*.ninja
+.ninja_*
+
+# ---- STM32 / embedded build artifacts ----
+*.elf
+*.axf
+*.map
+*.hex
+*.bin
+*.srec
+*.list
+*.lst
+*.o
+*.obj
+*.d
+*.dep
+*.su
+*.a
+*.lib
+
+# ---- IDE cache/state ----
+# CubeIDE / CubeMX metadata cache
+/.settings/
+/mx.scratch/
+
+# VS Code: keep shared config, ignore local-only files
+.vscode/*
+!.vscode/launch.json
+!.vscode/settings.json
+
+# Optional: usually local and machine-dependent
+.vscode/c_cpp_properties.json
+
+# ---- OS junk ----
+.DS_Store
+Thumbs.db
