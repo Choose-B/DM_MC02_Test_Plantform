@@ -55,6 +55,25 @@ const osThreadAttr_t defaultTask_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for buttonTask */
+osThreadId_t buttonTaskHandle;
+const osThreadAttr_t buttonTask_attributes = {
+  .name = "buttonTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for uartRxTask */
+osThreadId_t uartRxTaskHandle;
+const osThreadAttr_t uartRxTask_attributes = {
+  .name = "uartRxTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for ButtonMessageQueue */
+osMessageQueueId_t ButtonMessageQueueHandle;
+const osMessageQueueAttr_t ButtonMessageQueue_attributes = {
+  .name = "ButtonMessageQueue"
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -62,7 +81,10 @@ const osThreadAttr_t defaultTask_attributes = {
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
+void ButtonTask(void *argument);
+void UartRxTask(void *argument);
 
+extern void MX_USB_DEVICE_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /* Hook prototypes */
@@ -99,6 +121,10 @@ void MX_FREERTOS_Init(void) {
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
 
+  /* Create the queue(s) */
+  /* creation of ButtonMessageQueue */
+  ButtonMessageQueueHandle = osMessageQueueNew (16, sizeof(uint16_t), &ButtonMessageQueue_attributes);
+
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
@@ -106,6 +132,12 @@ void MX_FREERTOS_Init(void) {
   /* Create the thread(s) */
   /* creation of defaultTask */
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+
+  /* creation of buttonTask */
+  buttonTaskHandle = osThreadNew(ButtonTask, NULL, &buttonTask_attributes);
+
+  /* creation of uartRxTask */
+  uartRxTaskHandle = osThreadNew(UartRxTask, NULL, &uartRxTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -118,6 +150,7 @@ void MX_FREERTOS_Init(void) {
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
+uint32_t value_test;
 /**
   * @brief  Function implementing the defaultTask thread.
   * @param  argument: Not used
@@ -126,13 +159,72 @@ void MX_FREERTOS_Init(void) {
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void *argument)
 {
+  /* init code for USB_DEVICE */
+  MX_USB_DEVICE_Init();
   /* USER CODE BEGIN StartDefaultTask */
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    taskENTER_CRITICAL(); // 进入临界段
+    value_test++;
+    taskEXIT_CRITICAL(); // 退出临界段
+    osDelay(200);
   }
   /* USER CODE END StartDefaultTask */
+}
+
+/* USER CODE BEGIN Header_ButtonTask */
+/**
+* @brief Function implementing the buttonTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_ButtonTask */
+void ButtonTask(void *argument)
+{
+  /* USER CODE BEGIN ButtonTask */
+  /* Infinite loop */
+  uint8_t button_state = 0;
+  for(;;)
+  {
+    button_state = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_15);
+    if (button_state == GPIO_PIN_RESET) // 按键按下
+    {
+      uint16_t msg = 1; // 可以根据需要定义消息内容
+      osMessageQueuePut(ButtonMessageQueueHandle, &msg, 0, 0); // 将消息放入队列
+    }
+    osDelay(1);
+  }
+  /* USER CODE END ButtonTask */
+}
+
+/* USER CODE BEGIN Header_UartRxTask */
+/**
+* @brief Function implementing the uartRxTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_UartRxTask */
+void UartRxTask(void *argument)
+{
+  /* USER CODE BEGIN UartRxTask */
+  /* Infinite loop */
+  uint8_t called_cnt = 0;
+  uint16_t msg;
+  uint8_t led_state = 0;
+  for(;;)
+  {
+    osMessageQueueGet(ButtonMessageQueueHandle, &msg, 0, osWaitForever);
+    called_cnt++;
+    if (called_cnt >= 5)
+    {
+      // printf("Button pressed 5 times!\r\n");
+      led_state = !led_state; // 切换LED状态
+      HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, led_state ? GPIO_PIN_SET : GPIO_PIN_RESET); // 控制LED
+      called_cnt = 0; // 重置计数器
+    }
+  }
+  /* USER CODE END UartRxTask */
 }
 
 /* Private application code --------------------------------------------------*/
